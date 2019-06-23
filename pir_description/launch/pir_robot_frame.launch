@@ -1,0 +1,11 @@
+<launch>
+  <arg name="gui" default="false" />
+  <arg name="pt" default="false"/>
+  <param name="use_gui" value="$(arg gui)"/>
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find pir_description)/rviz/pir_robot_frame.rviz" required="true"/>
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"/>
+
+  <param name="robot_description" command="$(find xacro)/xacro '$(find pir_description)/urdf/pir_robot_frame.urdf.xacro'"/>
+</launch>
