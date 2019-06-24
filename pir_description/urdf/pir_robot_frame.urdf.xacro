@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <robot name="pir_robot_frame" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:include filename="$(find pir_description)/urdf/common_properties.xacro"/>
-  <!--xacro:include filename="$(find pir_description)/urdf/pir_robot_frame.gazebo.xacro"/-->
+  <xacro:include filename="$(find pir_description)/urdf/pir_robot_frame.gazebo.xacro"/>
 
   <link name="base_footprint"/>
 
@@ -13,7 +13,7 @@
 
   <link name="base_link">
     <visual>
-      <origin xyz="0 0 0.0" rpy="0 0 0"/>
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
       <geometry>
         <!--box size="0.07 0.085 0.065"/-->
         <mesh filename="package://pir_description/meshes/base/pir_body.stl" scale="0.001 0.001 0.001"/>
@@ -40,7 +40,7 @@
   <joint name="wheel_left_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_left_link"/>
-    <origin xyz="0.0 0.14 0.026" rpy="-1.57 0 0"/>
+    <origin xyz="0.0 0.14 0.056" rpy="-1.57 0 0"/>
     <axis xyz="0 0 1"/>
   </joint>
 
@@ -57,7 +57,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder length="0.018" radius="0.033"/>
+        <cylinder length="0.018" radius="0.06"/>
       </geometry>
     </collision>
 
@@ -73,7 +73,7 @@
   <joint name="wheel_right_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_right_link"/>
-    <origin xyz="0.0 -0.14 0.026" rpy="1.57 0 0"/>
+    <origin xyz="0.0 -0.14 0.056" rpy="1.57 0 0"/>
     <axis xyz="0 0 1"/>
   </joint>
 
@@ -90,7 +90,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <cylinder length="0.018" radius="0.033"/>
+        <cylinder length="0.018" radius="0.06"/>
       </geometry>
     </collision>
 
