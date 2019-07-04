@@ -38,6 +38,10 @@
     <material>Gazebo/Grey</material>
   </gazebo>
 
+  <gazebo reference="led_plate_link">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
   <gazebo>
     <plugin name="pir_robot_frame_controller" filename="libgazebo_ros_diff_drive.so">
       <commandTopic>cmd_vel</commandTopic>

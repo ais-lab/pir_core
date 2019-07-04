@@ -79,6 +79,16 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        caster_front_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        caster_rear_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         imu_link:
           Alpha: 1
           Show Axes: false
@@ -110,6 +120,10 @@ Visualization Manager:
           Value: true
         base_scan:
           Value: false
+        caster_front_link:
+          Value: false
+        caster_rear_link:
+          Value: false
         imu_link:
           Value: false
         wheel_left_link:
@@ -125,6 +139,10 @@ Visualization Manager:
         base_footprint:
           base_link:
             base_scan:
+              {}
+            caster_front_link:
+              {}
+            caster_rear_link:
               {}
             imu_link:
               {}
@@ -162,7 +180,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 0.2633306682109833
+      Distance: 1.0381033420562744
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -177,10 +195,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3697966933250427
+      Pitch: -0.015203315764665604
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.659430027008057
+      Yaw: 5.417611122131348
     Saved: ~
 Window Geometry:
   Displays:
@@ -199,4 +217,4 @@ Window Geometry:
     collapsed: false
   Width: 1200
   X: 67
-  Y: 114
+  Y: 54
