@@ -22,8 +22,10 @@ class Publishsers():
        self.scan.intensities = msg.intensities 
        for i in range(len(msg.ranges)):
 	  if i < self.ang_min or i > 360 - self.ang_max:
-              print msg.ranges[i]
-              self.scan.ranges.append(msg.ranges[i])
+              if str(msg.ranges[i]) == "inf":
+                  self.scan.ranges.append(0.0)
+              else:
+                  self.scan.ranges.append(msg.ranges[i])
           else:
 	      self.scan.ranges.append(0.0)
 
