@@ -84,7 +84,7 @@ class Server(Publishsers):
     def service_callback(self, req):
         result = Bool()
 
-        order = req.order.data
+        order = str(req.order.data)
 
         if order == "a":
             acc = req.acceleration.data
@@ -144,7 +144,7 @@ class Server(Publishsers):
 
             print("===== stop ======")
 
-        elif prder == "p":
+        elif order == "p":
             time = req.time.data
             pause_time = time / 1000.0
             result.data = self.pause(pause_time)
@@ -235,7 +235,7 @@ class Server(Publishsers):
         # self.current_linear = (self.left_velocity + self.right_velocity) / 2
         while (abs(self.current_linear) < abs(target_speed)):
 
-            print self.current_linear
+            # print self.current_linear
 
             if self.lidar_flag == 1:
                 self.spt_pub(0.0,0.0)
@@ -309,6 +309,7 @@ class Server(Publishsers):
         return True
 
     def turning(self, speed, radius, distance, direction):
+        print "turinig"
         time = 0.0
         current_distance = 0.0
 
@@ -334,6 +335,7 @@ class Server(Publishsers):
 
             target_left, target_right = self.constrain(target_left, target_right, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
             self.set_speed(target_left, target_right, acc)
+            print target_left, target_right
 
             self.spt_pub(target_left, target_right)
 

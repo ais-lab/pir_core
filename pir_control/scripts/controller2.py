@@ -11,11 +11,17 @@ from subprocess import call, Popen
 from time import sleep
 import rospkg
 
+# from pir_control.msg import Motor
+from pir_control.srv import *
+
 
 class TextfileController(object):
     def __init__(self):
         self.rate = rospy.Rate(100) # 100hz
         self.rate_time = 0.01
+        self.scan_flag = 0
+        self.motor = rospy.ServiceProxy('/pir_control/motor', AddMotor)
+
 
     def executive_file(self, file):
         ### start main controller ###
@@ -56,26 +62,37 @@ class TextfileController(object):
             command_param_set = self.extract_commands(texts)
             command = command_param_set[0]
 
+            req = AddMotorRequest()
 
-            if command == "acc":
+
+            if command == "acceleration":
                 acc = float(command_param_set[1])
-                acc = acc / 1000
+                # acc = acc / 1000
 
                 target_speed = float(command_param_set[2])
-                target_speed = target_speed / 1000
+                # target_speed = target_speed / 1000
 
-                self.acc(acc, target_speed)
+                req.order.data = "a"
+                req.acceleration.data = acc
+                req.target_speed.data = target_speed
+
+                result = self.motor(req)
 
             #forward
             elif command == "forward":
 
                 speed = float(command_param_set[1])
-                speed = speed / 1000  # convert from mm to m
+                # speed = speed / 1000  # convert from mm to m
 
                 distance = float(command_param_set[2])
-                distance = distance / 1000  # convert from mm to m
+                # distance = distance / 1000  # convert from mm to m
 
-                self.forward(speed, distance)
+                req.order.data = "f"
+                req.speed.data = speed
+                req.distance.data = distance
+
+                result = self.motor(req)
+
 
             elif command == "rotation":
 
@@ -84,22 +101,33 @@ class TextfileController(object):
 
                 relative_angle = angle * 2 * self.PI / 360  # convert from degree to radian
 
-                self.rotation(omega, relative_angle)
+                req.order.data = "r"
+                req.omega.data = omega
+                req.angle.data = angle
+
+                result = self.motor(req)
+
 
             elif command == "turning":
 
                 speed = float(command_param_set[1])
-                speed = speed / 1000  #convert from mm/s to m/s
+                # speed = speed / 1000  #convert from mm/s to m/s
 
                 radius = float(command_param_set[2])
-                radius = radius / 1000   #convert from mm to m
+                # radius = radius / 1000   #convert from mm to m
 
                 distance = float(command_param_set[3])
-                distance = distance / 1000  #convert from mm to m
+                # distance = distance / 1000  #convert from mm to m
 
                 direction = command_param_set[4]  #'left' is left, 'right' is right
 
-                self.turning(speed, radius, distance, direction)
+                req.order.data = "t"
+                req.speed.data = speed
+                req.radius.data = radius
+                req.direction.data = direction
+
+                result = self.motor(req)
+
 
             elif command == "sleep":
                 time = float(command_param_set[1])
@@ -109,24 +137,30 @@ class TextfileController(object):
 
             elif command == "pause":
                 pause_time = float(command_param_set[1])
-                pause_time = pause_time / 1000  #convert ms to s
+                # pause_time = pause_time / 1000  #convert ms to s
 
+                req.order.data = "p"
+                req.time.data = pause_time
+
+                result = self.motor(req)
                 print("_____ pause ______")
 
 
             elif command == "stop":
 
-                self.pub_speed(0, 0)  #velocity is stop
+                req.order.data = "s"
 
+                result = self.motor(req)
                 print("===== stop ======")
 
             elif command == 'slowstop':
 
                 down_acc = float(command_param_set[1])
-                down_acc = down_acc / 1000
+                # down_acc = down_acc / 1000
+                req.order.data = "ss"
+                req.acceleration.data = down_acc
 
-                self.slowstop(down_acc)
-
+                result = self.motor(req)
                 print("===== stop =====")
 
 
@@ -147,7 +181,7 @@ class TextfileController(object):
             elif command == "end":
                 self.file_open(None)
 
-            elif command == "" or command "#":
+            elif command == "" or command == "#":
                 pass
 
             else:
@@ -163,8 +197,9 @@ class Move(TextfileController):
 
     def search_callback(self, scan_result):
         if scan_result.data == 1:
-            next_file = rospy.get_param("/textfile_controller/next_file")
-            self.change_file(next_file)
+            self.scan_flag = 1
+        else:
+            self.scan_flag = 0
 
 
 
