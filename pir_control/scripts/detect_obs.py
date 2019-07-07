@@ -8,25 +8,15 @@ from std_msgs.msg import Float64
 
 class Lidar(object):
     def __init__(self):
+        self.count = 0
         self.scan_data_sub = rospy.Subscriber("/scan", LaserScan, self.callback)
-        self.detect_result_pub = rospy.Publisher("/result", Int64, queue_size=1)
+        self.detect_result_pub = rospy.Publisher("/search/result", Int64, queue_size=1)
 
     def callback(self, scan_data):
         result = Int64()
         distance = rospy.get_param("/textfile_controller/distance")
         result.data = self.detect_obs(scan_data.ranges, distance)
         self.detect_result_pub.publish(result)
-
-    def judge_pub(self, result):
-        if result.data == 1:
-            self.count += 1
-        else:
-            self.count = 0
-
-        print self.count 
-        if self.count == 5:
-            self.detect_result_pub.publish(1)
-            self.count = 0
 
     def detect_obs(self, scan_data, distance):
         #  scan data [m]
@@ -53,6 +43,11 @@ class Lidar(object):
                 num += 1
 
         if num > margin:
+            self.count += 1
+        else:
+            self.count = 0
+
+        if self.count > 5:
             obs_flag = 1
 
 
