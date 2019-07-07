@@ -10,6 +10,7 @@ import tf
 
 from std_msgs.msg import String, Int64, Float64, Bool
 from geometry_msgs.msg import Twist, Point, Quaternion
+from nav_msgs.msg import Odometry
 from pir_control.srv import AddMotor
 from pir_control.srv import AddMotorResponse
 
@@ -38,6 +39,7 @@ class Server(Publishsers):
         self.rate_time = 0.01
         self.tf_listener = tf.TransformListener()
         self.odom_frame = '/odom'
+        self.lidar_flag = 0
 
         try:
             self.tf_listener.waitForTransform(self.odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
@@ -57,13 +59,27 @@ class Server(Publishsers):
 
         # Declaration Subscriber
         self.search_sub = rospy.Subscriber('/search/result', Int64 , self.search_callback)
+        self.odom_sub = rospy.Subscriber('/odom', Odometry , self.odom_callback)
 
         # Declaration Service Server
-        self.server = rospy.Service("/prediction/target_human", AddMotor, self.service_callback)
+        self.server = rospy.Service("/pir_control/motor", AddMotor, self.service_callback)
 
 
     def search_callback(self, msg):
-        pass
+        if msg.data == 1:
+            self.lidar_flag = 1
+        else:
+            self.lidar_flag = 0
+
+    def odom_callback(self, odom):
+        # print odom.twist.twist.linear.x
+        # print odom.twist.twist.angular.z
+        self.current_linear = odom.twist.twist.linear.x
+        self.current_angular = odom.twist.twist.angular.z
+        self.left_velocity = odom.twist.twist.linear.x + (odom.twist.twist.angular.z * self.HALF_WHEEL_SEPARATION)
+        self.right_velocity = odom.twist.twist.linear.x - (odom.twist.twist.angular.z * self.HALF_WHEEL_SEPARATION)
+        # print int(self.left_velocity) , int(self.right_velocity)
+        # print round(self.current_linear, 2)
 
     def service_callback(self, req):
         result = Bool()
@@ -77,7 +93,7 @@ class Server(Publishsers):
             target_speed = req.target_speed.data
             target_speed = target_speed / 1000.0
 
-            self.acc(acc, target_speed)
+            result.data = self.acc(acc, target_speed)
 
         elif order == "f":
             speed = req.speed.data
@@ -90,7 +106,7 @@ class Server(Publishsers):
             x_start = position.x
             y_start = position.y
 
-            self.forward(speed, distance, x_start, y_start)
+            result.data = self.forward(speed, distance, x_start, y_start)
 
         elif order == "r":
             omega = req.omega.data
@@ -98,7 +114,7 @@ class Server(Publishsers):
 
             relative_angle = angle * 2 * self.PI / 360  # convert from degree to radian
 
-            self.rotation(omega, relative_angle)
+            result.data = self.rotation(omega, relative_angle)
 
         elif order == "t":
             speed = req.speed.data
@@ -112,26 +128,29 @@ class Server(Publishsers):
 
             direction = req.direction.data  #'left' is left, 'right' is right
 
-            self.turning(speed, radius, distance, direction)
+            result.data = self.turning(speed, radius, distance, direction)
 
-        elif order == "sstop":
+        elif order == "ss":
 
             down_acc = abs(req.acc.data)
             down_acc = down_acc / 1000.0
 
-            self.slowstop(down_acc)
+            result.data = self.slowstop(down_acc)
 
             print("===== stop =====")
 
-        elif order == "stop":
+        elif order == "s":
             self.spt_pub(0, 0)  #velocity is stop
 
             print("===== stop ======")
+
+        elif prder == "p":
+            time = req.time.data
+            pause_time = time / 1000.0
+            result.data = self.pause(pause_time)
         else:
             print "else"
 
-
-        result.data = True
         return AddMotorResponse(result)
 
 
@@ -147,46 +166,46 @@ class Server(Publishsers):
 
         return left_velocity, right_velocity
 
-    def set_speed(self, left_velocity, right_velocity, target_left_velocity, target_right_velocity, acceleration):
+    def set_speed(self, target_left_velocity, target_right_velocity, acceleration):
+        target_left = 0.0
+        target_right = 0.0
         acc = acceleration * self.rate_time
-        if left_velocity < target_left_velocity and right_velocity < target_right_velocity:
-            while left_velocity < target_left_velocity or right_velocity < target_right_velocity:
-                if left_velocity < target_left_velocity:
-                    left_velocity += acc
-                if right_velocity < target_right_velocity:
-                    right_velocity += acc
-                self.spt_pub(left_velocity, right_velocity)
+        if self.left_velocity < target_left_velocity and self.right_velocity < target_right_velocity:
+            while self.left_velocity < target_left_velocity or self.right_velocity < target_right_velocity:
+                if self.left_velocity < target_left_velocity:
+                    taregt_left = self.left_velocity + acc
+                if self.right_velocity < target_right_velocity:
+                    target_right = self.right_velocity + acc
+                self.spt_pub(taregt_left, target_right)
                 self.rate.sleep()
 
-        elif left_velocity < target_left_velocity and right_velocity > target_right_velocity:
-            while left_velocity < target_left_velocity or right_velocity > target_right_velocity:
-                if left_velocity < target_left_velocity:
-                    left_velocity += acc
-                if right_velocity > target_right_velocity:
-                    right_velocity -= acc
-                self.spt_pub(left_velocity, right_velocity)
+        elif self.left_velocity < target_left_velocity and self.right_velocity > target_right_velocity:
+            while self.left_velocity < target_left_velocity or self.right_velocity > target_right_velocity:
+                if self.left_velocity < target_left_velocity:
+                    target_left = self.left_velocity + acc
+                if self.right_velocity > target_right_velocity:
+                    target_right = self.right_velocity- acc
+                self.spt_pub(target_left, target_right)
                 self.rate.sleep()
 
 
-        elif left_velocity > target_left_velocity and right_velocity > target_right_velocity:
-            while left_velocity > target_left_velocity or right_velocity > target_right_velocity:
-                if left_velocity > target_left_velocity:
-                    left_velocity -= acc
-                if right_velocity > target_right_velocity:
-                    right_velocity -= acc
-                self.spt_pub(left_velocity, right_velocity)
+        elif self.left_velocity > target_left_velocity and self.right_velocity > target_right_velocity:
+            while self.left_velocity > target_left_velocity or self.right_velocity > target_right_velocity:
+                if self.left_velocity > target_left_velocity:
+                    target_left = self.left_velocity - acc
+                if self.right_velocity > target_right_velocity:
+                    target_right = self.right_velocity - acc
+                self.spt_pub(target_left, target_right)
                 self.rate.sleep()
 
         else:  #left > target_left and right < target_right
-            while left_velocity > target_left_velocity or right_velocity < target_right_velocity:
-                if left_velocity > target_left_velocity:
-                    left_velocity -= acc
-                if right_velocity < target_right_velocity:
-                    right_velocity += acc
-                self.spt_pub(left_velocity, right_velocity)
+            while self.left_velocity > target_left_velocity or self.right_velocity < target_right_velocity:
+                if self.left_velocity > target_left_velocity:
+                    target_left = self.left_velocity - acc
+                if self.right_velocity < target_right_velocity:
+                    target_right = self.right_velocity + acc
+                self.spt_pub(target_left, target_right)
                 self.rate.sleep()
-
-        return left_velocity, right_velocity
 
     def get_distance(self, distance_x, distance_y):
         distance = sqrt(distance_x**2 + distance_y**2)
@@ -213,26 +232,39 @@ class Server(Publishsers):
         return res
 
     def acc(self, acc, target_speed):
-        self.current_velocity = (self.left_velocity + self.right_velocity) / 2
-        while (self.current_velocity < target_speed):
-            self.left_velocity += acc * self.rate_time
-            self.right_velocity += acc * self.rate_time
-            self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-            self.spt_pub(self.left_velocity, self.right_velocity)
+        # self.current_linear = (self.left_velocity + self.right_velocity) / 2
+        while (abs(self.current_linear) < abs(target_speed)):
+
+            print self.current_linear
+
+            if self.lidar_flag == 1:
+                self.spt_pub(0.0,0.0)
+                return False
+
+            target_left = self.left_velocity + (acc * self.rate_time)
+            target_right = self.right_velocity + (acc * self.rate_time)
+            target_left, target_right = self.constrain(target_left, target_right, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
+            self.spt_pub(target_left, target_right)
             self.rate.sleep()
-            self.current_velocity = (self.left_velocity + self.right_velocity) / 2
-        print "finish: acc"
+            # self.current_linear = (self.left_velocity + self.right_velocity) / 2
+
+        print ("finish: acceleration {0:4.0f}(mm/s^2) {1:4.0f}(mm/s)".format(acc*1000,target_speed*1000))
+        return True
 
     def forward(self, velocity, distance, x_start, y_start):
         time = 0.0
         current_distance = 0.0
-        self.set_speed(self.left_velocity, self.right_velocity, velocity, velocity, 0.4)
-        while( current_distance < distance):
 
-            self.left_velocity = velocity
-            self.right_velocity = velocity
-            self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-            self.spt_pub(self.left_velocity,self.right_velocity)
+        self.constrain(velocity, velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
+        self.set_speed(velocity, velocity, 0.4)
+
+        while( abs(current_distance) < abs(distance)):
+
+            if self.lidar_flag == 1:
+                self.spt_pub(0.0,0.0)
+                return False
+
+            self.spt_pub(velocity, velocity)
             time += 0.01
             self.rate.sleep()
             (position, rotation) = self.get_odom()
@@ -240,6 +272,7 @@ class Server(Publishsers):
 
         # current_linear = vel_msg.linear.x
         print ("finish: forward {0:4.0f}(mm/s) {1:4.0f}(mm)".format(velocity*1000,distance*1000))
+        return True
 
     def rotation(self, omega, relative_angle):
         angular_tolerance = radians(2.5)
@@ -248,30 +281,32 @@ class Server(Publishsers):
         last_angle = prev_rotation
         turn_angle = 0.0
 
+        if omega > 0:
+            target_left = - (omega * self.HALF_WHEEL_SEPARATION)
+            target_right = omega * self.HALF_WHEEL_SEPARATION
+        else:
+            target_left = - (omega * self.HALF_WHEEL_SEPARATION)
+            target_right = omega * self.HALF_WHEEL_SEPARATION
+
+        target_left, target_right = self.constrain(target_left, target_right, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
+        self.spt_pub(target_left, target_right)
+
         while( abs(turn_angle + angular_tolerance) < abs(relative_angle)):
 
-            if omega > 0:
+            if self.lidar_flag == 1:
+                self.spt_pub(0.0,0.0)
+                return False
 
-                self.left_velocity = - (omega * self.HALF_WHEEL_SEPARATION)
-                self.right_velocity = omega * self.HALF_WHEEL_SEPARATION
-
-            else:
-
-                self.left_velocity = - (omega * self.HALF_WHEEL_SEPARATION)
-                self.right_velocity = omega * self.HALF_WHEEL_SEPARATION
-
-            self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-            self.spt_pub(self.left_velocity, self.right_velocity)
             self.rate.sleep()
             (position, rotation) = self.get_odom()
             delta_angle = self.normalize_angle(rotation - last_angle)
             turn_angle += delta_angle
             last_angle = rotation
-        self.left_velocity = 0.0
-        self.right_velocity = 0.0
-        self.spt_pub(self.left_velocity, self.right_velocity)
+
+        self.spt_pub(0.0, 0.0)
 
         print ("finish: rotation {0}(rad/s) {1}(radian)".format(omega,relative_angle))
+        return True
 
     def turning(self, speed, radius, distance, direction):
         time = 0.0
@@ -279,37 +314,37 @@ class Server(Publishsers):
 
         if direction == 'left' or direction == 'right':
             if direction == 'left':
-                if (self.left_velocity == 0 and self.right_velocity == 0):
-                    target_left_velocity = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    target_right_velocity = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    self.set_speed(self.left_velocity, self.right_velocity, target_left_velocity,target_right_velocity, 0.2)
+                if (int(self.left_velocity) == 0 and int(self.right_velocity) == 0):
+                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    acc = 0.2
                 else:
-                    target_left_velocity = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    target_right_velocity = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    self.set_speed(self.left_velocity, self.right_velocity, target_left_velocity,target_right_velocity, 0.4)
+                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    acc = 0.4
             else:
-                if (self.left_velocity == 0 and self.right_velocity == 0):
-                    target_left_velocity = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
-                    target_right_velocity = speed * (radius - self.HALF_WHEEL_SEPARATION) /radius
-                    self.set_speed(self.left_velocity, self.right_velocity, target_left_velocity, target_right_velocity, 0.2)
+                if (int(self.left_velocity) == 0 and int(self.right_velocity) == 0):
+                    target_left = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
+                    target_right = speed * (radius - self.HALF_WHEEL_SEPARATION) /radius
+                    acc = 0.2
                 else:
-                    target_left_velocity = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
-                    target_right_velocity = speed * (radius - self.HALF_WHEEL_SEPARATION) / radius
-                    self.set_speed(self.left_velocity, self.right_velocity, target_left_velocity, target_right_velocity, 0.4)
+                    target_left = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
+                    target_right = speed * (radius - self.HALF_WHEEL_SEPARATION) / radius
+                    acc = 0.4
 
-            while( current_distance < distance):
+            target_left, target_right = self.constrain(target_left, target_right, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
+            self.set_speed(target_left, target_right, acc)
+
+            self.spt_pub(target_left, target_right)
+
+            while( abs(current_distance) < abs(distance)):
 
                 (prev_position, prev_rotation) = self.get_odom()
 
-                if direction == 'left':
-                    self.left_velocity = target_left_velocity
-                    self.right_velocity = target_right_velocity
-                elif direction == 'right':
-                    self.left_velocity = target_left_velocity
-                    self.right_velocity = target_right_velocity
+                if self.lidar_flag == 1:
+                    self.spt_pub(0.0,0.0)
+                    return False
 
-                self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-                self.spt_pub(self.left_velocity, self.right_velocity)
                 self.rate.sleep()
                 (position, rotation) = self.get_odom()
                 current_distance += sqrt(pow((position.x - prev_position.x), 2) + pow((position.y - prev_position.y), 2))
@@ -323,35 +358,50 @@ class Server(Publishsers):
         else:
             print "" + direction + " : type error"
 
+        return True
+
     def slowstop(self, down_acc):
 
-        self.current_velocity = (self.left_velocity + self.right_velocity) / 2  #Decide initial velocity
-
-        if self.current_velocity > 0:
-            while ( self.left_velocity >= 0 and self.right_velocity >= 0 ):
-
-                self.left_velocity -= down_acc * self.rate_time
-                self.right_velocity -= down_acc * self.rate_time
-
-                self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-                self.spt_pub(self.left_velocity, self.right_velocity)
-                self.rate.sleep()
+        if self.left_velocity > 0.0:
+            down_left = - down_acc
         else:
-            while (self.left_velocity <= 0 and self.right_velocity <= 0):
+            down_left = down_acc
 
-                exit_flag = rospy.get_param("/textfile_controller/exit_flag")
-                if exit_flag == 1:
-                    rospy.set_param("/textfile_controller/exit_flag", 0)
-                    end_flag = 1
+        if self.right_velocity > 0.0:
+            down_right = - down_acc
+        else:
+            down_right = down_acc
 
-                self.left_velocity += down_acc * self.rate_time
-                self.right_velocity += down_acc * self.rate_time
+        # self.current_linear = (self.left_velocity + self.right_velocity) / 2  #Decide initial velocity
+        # round(f, 1)
+        while ( round(self.left_velocity, 2) == 0.0 and round(self.right_velocity, 2) == 0.0 ):
 
+            if self.lidar_flag == 1:
+                self.spt_pub(0.0,0.0)
+                return False
 
-                self.left_velocity,self.right_velocity = self.constrain(self.left_velocity, self.right_velocity, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-                self.spt_pub(self.left_velocity, self.right_velocity)
-                self.rate.sleep()
-        self.spt_pub(0,0)
+            target_left = self.left_velocity + down_acc * self.rate_time
+            target_right = self.right_velocity + down_acc * self.rate_time
+
+            self.spt_pub(target_left, target_right)
+            self.rate.sleep()
+
+        self.spt_pub(0.0,0.0)
+        return True
+
+    def pause(self, pause_time):
+        time = 0.0
+        self.spt_pub(0.0,0.0)
+        while time < pause_time:
+
+            if self.lidar_flag == 1:
+                return False
+
+            time += 0.01
+            self.rate.sleep()
+
+        print("_____ pause ______")
+        return True
 
 
 if __name__ == '__main__':
