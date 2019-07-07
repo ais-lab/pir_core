@@ -7,7 +7,7 @@ std_msgs/String direction
 std_msgs/Float64 target_speed
 std_msgs/Float64 omega
 std_msgs/Float64 angle
-
+std_msgs/Float64 time
 ---
 
 std_msgs/Bool result
