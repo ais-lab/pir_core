@@ -10,9 +10,9 @@ import math
 from subprocess import call, Popen
 from time import sleep
 import rospkg
-
 # from pir_control.msg import Motor
 from pir_control.srv import *
+from geometry_msgs.msg import Twist
 
 
 class TextfileController(object):
@@ -20,13 +20,19 @@ class TextfileController(object):
         self.rate = rospy.Rate(100) # 100hz
         self.rate_time = 0.01
         self.scan_flag = 0
+        self.result = True
         self.motor = rospy.ServiceProxy('/pir_control/motor', AddMotor)
+        self.cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
 
-    def executive_file(self, file):
-        ### start main controller ###
-        instance_name = TextfileController()
-        instance_name.textfile_controller()
+    def executive_file(self):
+        file = rospy.get_param("/textfile_controller/file_name")
+        if file != "":
+            ### start main controller ###
+            instance_name = TextfileController()
+            instance_name.textfile_controller()
+        else:
+            self.shutdown()
 
     def file_open(self, file_name):
         if file_name is not None:
@@ -35,11 +41,12 @@ class TextfileController(object):
             file_content = open(filepath)
             print("\n")
             print("*** "+ file_name + ".mts ***")
+            print("\n")
             return file_content
         else:
             print("Done")
             self.shutdown()
-            rospy.signal_shutdown("Done")
+
 
     def extract_commands(self, text):
         text = text.replace('\n'," ")
@@ -47,24 +54,26 @@ class TextfileController(object):
         return text
 
     def shutdown(self):
-        rospy.loginfo("Stopping the robot...")
-        self.vel_msg.publish(Twist())
-        rospy.sleep(1)
-
+        self.cmd_pub.publish(Twist())
+        rospy.signal_shutdown("Done")
 
     def textfile_controller(self):
 
         file_name = rospy.get_param("/textfile_controller/file_name")
         file_content = self.file_open(file_name)
 
+        ### initial params ###
+        rospy.set_param("/textfile_controller/distance", 0.0)
+        rospy.set_param("/textfile_controller/file_name", "")
+        rospy.set_param("/textfile_controller/detect/file_name", "")
+
         for texts in file_content:
 
             command_param_set = self.extract_commands(texts)
             command = command_param_set[0]
 
+
             req = AddMotorRequest()
-
-
             if command == "acceleration":
                 acc = float(command_param_set[1])
                 # acc = acc / 1000
@@ -77,6 +86,8 @@ class TextfileController(object):
                 req.target_speed.data = target_speed
 
                 result = self.motor(req)
+                self.result = result.result.data
+
 
             #forward
             elif command == "forward":
@@ -92,6 +103,7 @@ class TextfileController(object):
                 req.distance.data = distance
 
                 result = self.motor(req)
+                self.result = result.result.data
 
 
             elif command == "rotation":
@@ -106,6 +118,7 @@ class TextfileController(object):
                 req.angle.data = angle
 
                 result = self.motor(req)
+                self.result = result.result.data
 
 
             elif command == "turning":
@@ -128,13 +141,7 @@ class TextfileController(object):
                 req.direction.data = direction
 
                 result = self.motor(req)
-
-
-            elif command == "sleep":
-                time = float(command_param_set[1])
-                time = time / 1000  #convert from s to ms
-                rospy.sleep(time)
-                print("----- sleep -----")
+                self.result = result.result.data
 
             elif command == "pause":
                 pause_time = float(command_param_set[1])
@@ -144,6 +151,7 @@ class TextfileController(object):
                 req.time.data = pause_time
 
                 result = self.motor(req)
+                self.result = result.result.data
                 print("_____ pause ______")
 
 
@@ -152,6 +160,7 @@ class TextfileController(object):
                 req.order.data = "s"
 
                 result = self.motor(req)
+                self.result = result.result.data
                 print("===== stop ======")
 
             elif command == 'slowstop':
@@ -162,6 +171,7 @@ class TextfileController(object):
                 req.acceleration.data = down_acc
 
                 result = self.motor(req)
+                self.result = result.result.data
                 print("===== stop =====")
 
 
@@ -170,14 +180,15 @@ class TextfileController(object):
                 #  distance [m] is from robot to obstacle.
                 distance = float(command_param_set[1])
                 rospy.set_param("/textfile_controller/distance", distance)
-                next_file = command_param_set[2]
-                rospy.set_param("/textfile_controller/next_file", next_file)
+                file = command_param_set[2]
+                rospy.set_param("/textfile_controller/detect/file_name", file)
 
                 print ("searching someone within {:.3f}(m)".format(distance))
 
             elif command == "e":
                 file = command_param_set[1]
-                self.executive_file(file)
+                rospy.set_param("/textfile_controller/file_name", file)
+                break
 
             elif command == "end":
                 self.file_open(None)
@@ -187,6 +198,20 @@ class TextfileController(object):
 
             else:
                 print "" + command + " : type error"
+
+            # print self.result
+            if (self.scan_flag == 1 or self.result == False):
+                detect_file = rospy.get_param("/textfile_controller/detect/file_name")
+                if detect_file != "":
+                    rospy.set_param("/textfile_controller/file_name", detect_file)
+                    break
+
+            else:
+                self.result = True
+
+        self.executive_file()
+
+
 
 
 class Move(TextfileController):
