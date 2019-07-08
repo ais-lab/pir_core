@@ -230,6 +230,7 @@ class Move(TextfileController):
 
 
 def main():
+    rospy.sleep(3.)
     rospy.init_node('textfile_controller2', anonymous=True)
     rospy.set_param("/textfile_controller/distance", 0)
     move = Move()
