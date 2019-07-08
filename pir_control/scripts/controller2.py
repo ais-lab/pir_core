@@ -6,7 +6,7 @@ from std_msgs.msg import Int64, Float64
 import time
 import numpy as np
 import serial
-import random
+import math
 from subprocess import call, Popen
 from time import sleep
 import rospkg
@@ -99,7 +99,7 @@ class TextfileController(object):
                 omega = float(command_param_set[1])
                 angle = float(command_param_set[2])
 
-                relative_angle = angle * 2 * self.PI / 360  # convert from degree to radian
+                relative_angle = angle * 2 * math.pi / 360  # convert from degree to radian
 
                 req.order.data = "r"
                 req.omega.data = omega
@@ -124,6 +124,7 @@ class TextfileController(object):
                 req.order.data = "t"
                 req.speed.data = speed
                 req.radius.data = radius
+                req.distance.data = distance
                 req.direction.data = direction
 
                 result = self.motor(req)
