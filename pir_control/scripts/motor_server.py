@@ -132,7 +132,7 @@ class Server(Publishsers):
 
         elif order == "ss":
 
-            down_acc = abs(req.acc.data)
+            down_acc = abs(req.acceleration.data)
             down_acc = down_acc / 1000.0
 
             result.data = self.slowstop(down_acc)
@@ -169,22 +169,23 @@ class Server(Publishsers):
     def set_speed(self, target_left_velocity, target_right_velocity, acceleration):
         target_left = 0.0
         target_right = 0.0
-        acc = acceleration * self.rate_time
+        acceleration = acceleration * self.rate_time
+
         if self.left_velocity < target_left_velocity and self.right_velocity < target_right_velocity:
             while self.left_velocity < target_left_velocity or self.right_velocity < target_right_velocity:
                 if self.left_velocity < target_left_velocity:
-                    taregt_left = self.left_velocity + acc
+                    taregt_left = self.left_velocity + acceleration
                 if self.right_velocity < target_right_velocity:
-                    target_right = self.right_velocity + acc
+                    target_right = self.right_velocity + acceleration
                 self.spt_pub(taregt_left, target_right)
                 self.rate.sleep()
 
         elif self.left_velocity < target_left_velocity and self.right_velocity > target_right_velocity:
             while self.left_velocity < target_left_velocity or self.right_velocity > target_right_velocity:
                 if self.left_velocity < target_left_velocity:
-                    target_left = self.left_velocity + acc
+                    target_left = self.left_velocity + acceleration
                 if self.right_velocity > target_right_velocity:
-                    target_right = self.right_velocity- acc
+                    target_right = self.right_velocity - acceleration
                 self.spt_pub(target_left, target_right)
                 self.rate.sleep()
 
@@ -192,18 +193,18 @@ class Server(Publishsers):
         elif self.left_velocity > target_left_velocity and self.right_velocity > target_right_velocity:
             while self.left_velocity > target_left_velocity or self.right_velocity > target_right_velocity:
                 if self.left_velocity > target_left_velocity:
-                    target_left = self.left_velocity - acc
+                    target_left = self.left_velocity - acceleration
                 if self.right_velocity > target_right_velocity:
-                    target_right = self.right_velocity - acc
+                    target_right = self.right_velocity - acceleration
                 self.spt_pub(target_left, target_right)
                 self.rate.sleep()
 
         else:  #left > target_left and right < target_right
             while self.left_velocity > target_left_velocity or self.right_velocity < target_right_velocity:
                 if self.left_velocity > target_left_velocity:
-                    target_left = self.left_velocity - acc
+                    target_left = self.left_velocity - acceleration
                 if self.right_velocity < target_right_velocity:
-                    target_right = self.right_velocity + acc
+                    target_right = self.right_velocity + acceleration
                 self.spt_pub(target_left, target_right)
                 self.rate.sleep()
 
@@ -309,24 +310,24 @@ class Server(Publishsers):
         return True
 
     def turning(self, speed, radius, distance, direction):
-        print "turinig"
+        # print "turinig"
         time = 0.0
         current_distance = 0.0
 
         if direction == 'left' or direction == 'right':
             if direction == 'left':
                 if (int(self.left_velocity) == 0 and int(self.right_velocity) == 0):
-                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / radius
+                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
                     acc = 0.2
                 else:
-                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
-                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / 2 / radius * 2
+                    target_left = speed * (radius - self.HALF_WHEEL_SEPARATION) / radius
+                    target_right = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
                     acc = 0.4
             else:
                 if (int(self.left_velocity) == 0 and int(self.right_velocity) == 0):
                     target_left = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
-                    target_right = speed * (radius - self.HALF_WHEEL_SEPARATION) /radius
+                    target_right = speed * (radius - self.HALF_WHEEL_SEPARATION) / radius
                     acc = 0.2
                 else:
                     target_left = speed * (radius + self.HALF_WHEEL_SEPARATION) / radius
@@ -334,8 +335,7 @@ class Server(Publishsers):
                     acc = 0.4
 
             target_left, target_right = self.constrain(target_left, target_right, self.MIN_WHEEL_VELOCITY, self.MAX_WHEEL_VELOCITY)
-            self.set_speed(target_left, target_right, acc)
-            print target_left, target_right
+            # self.set_speed(target_left, target_right, acc)
 
             self.spt_pub(target_left, target_right)
 
@@ -350,7 +350,6 @@ class Server(Publishsers):
                 self.rate.sleep()
                 (position, rotation) = self.get_odom()
                 current_distance += sqrt(pow((position.x - prev_position.x), 2) + pow((position.y - prev_position.y), 2))
-
 
             print ("finish: turning {0:4.0f}(mm/s) {1:4.0f}(mm) {2:4.0f}(mm) {3}".format(speed*1000,radius*1000,distance*1000,direction))
 
