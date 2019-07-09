@@ -1,0 +1,6 @@
+<launch>
+    <param name="/textfile_controller/distance" value="0"/>
+    <node pkg="pir_control" name="motor_server" type="motor_server.py" output="screen"/> 
+    <node pkg="pir_control" name="lidar" type="detect_obs.py" output="screen"/>
+    <node pkg="pir_control" name="mimic_spt_to_cmd" type="mimic_spt_to_cmd" output="screen"/>
+</launch>
