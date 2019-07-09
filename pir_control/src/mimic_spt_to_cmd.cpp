@@ -30,7 +30,7 @@ void Mimic::twistCallback(const geometry_msgs::TwistConstPtr& twist)
   float separation = 0.287;
 
   cmd_msg.linear.x = (left + right) / 2.0;
-  cmd_msg.angular.z = (right - left) / 2.0 / separation;
+  cmd_msg.angular.z = (right - left) / separation;
 
   cmd_pub_.publish(cmd_msg);
 }
