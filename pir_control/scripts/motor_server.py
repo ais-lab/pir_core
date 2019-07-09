@@ -141,6 +141,7 @@ class Server(Publishsers):
 
         elif order == "s":
             self.spt_pub(0, 0)  #velocity is stop
+            result.data = True
 
             print("===== stop ======")
 
