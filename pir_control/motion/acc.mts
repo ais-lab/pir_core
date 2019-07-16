@@ -1,5 +1,5 @@
 detect 1 dcc
-acc 70 480
+acceleration 200 480
 forward 480 1000
 slowstop 500
 rotation 180 60
